@@ -23,6 +23,7 @@ struct ConfigWindow: View {
     @ConfigState private var userDictionary = Config.UserDictionary()
     @ConfigState private var systemUserDictionary = Config.SystemUserDictionary()
     @ConfigState private var userDictionaryLoadStatus = Config.UserDictionaryLoadStatus()
+    @ConfigState private var contactsNameConversion = Config.ContactsNameConversion()
     @ConfigState private var keyboardLayout = Config.KeyboardLayout()
     @ConfigState private var aiBackend = Config.AIBackendPreference()
     @ConfigState private var transformShortcut = Config.TransformShortcut()
@@ -35,6 +36,8 @@ struct ConfigWindow: View {
     @State private var showingRomajiTableEditor = false
     @State private var connectionTestResult: String?
     @State private var systemUserDictionaryUpdateMessage: SystemUserDictionaryUpdateMessage?
+    @State private var contactsAccessDenied = false
+    @State private var contactsAccessRequestInProgress = false
     @State private var showingLearningResetConfirmation = false
     @State private var learningResetMessage: LearningResetMessage?
     @State private var foundationModelsAvailability: FoundationModelsAvailability?
@@ -192,6 +195,43 @@ struct ConfigWindow: View {
     private func exportUserDictionary() {
         if let appDelegate = NSApplication.shared.delegate as? AppDelegate {
             appDelegate.exportUserDictionaryAndReloadConverter()
+        }
+    }
+
+    /// 連絡先の氏名の利用を切り替える。オンにするときに初めてアクセスを求め、拒否されたらオフのままにする
+    @MainActor
+    private func setContactsNameConversion(_ enabled: Bool) async {
+        guard enabled else {
+            self.$contactsNameConversion.wrappedValue = false
+            self.contactsAccessDenied = false
+            self.exportUserDictionary()
+            return
+        }
+        let granted: Bool
+        switch ContactsNameProvider.authorizationStatus {
+        case .authorized:
+            granted = true
+        case .notDetermined:
+            self.contactsAccessRequestInProgress = true
+            granted = await ContactsNameProvider.requestAccess()
+            self.contactsAccessRequestInProgress = false
+        default:
+            granted = false
+        }
+        guard granted else {
+            self.$contactsNameConversion.wrappedValue = false
+            self.contactsAccessDenied = true
+            return
+        }
+        self.contactsAccessDenied = false
+        self.$contactsNameConversion.wrappedValue = true
+        (NSApplication.shared.delegate as? AppDelegate)?.contactsNameProvider.invalidate()
+        self.exportUserDictionary()
+    }
+
+    private func openContactsPrivacySettings() {
+        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Contacts") {
+            NSWorkspace.shared.open(url)
         }
     }
 
@@ -533,6 +573,33 @@ struct ConfigWindow: View {
                     }
                 } label: {
                     Text("最終読み込み")
+                }
+                VStack(alignment: .leading, spacing: 6) {
+                    Toggle(
+                        "連絡先の氏名を変換に使う",
+                        isOn: Binding(
+                            get: { self.contactsNameConversion.value },
+                            set: { newValue in
+                                Task { @MainActor in
+                                    await self.setContactsNameConversion(newValue)
+                                }
+                            }
+                        )
+                    )
+                    .disabled(self.contactsAccessRequestInProgress)
+                    .help("フリガナが登録されている連絡先の姓・名を変換候補に加えます。連絡先のデータは端末の外へ送信されません。")
+                    if self.contactsAccessDenied || (self.contactsNameConversion.value && !ContactsNameProvider.isAuthorized) {
+                        HStack {
+                            Text("連絡先へのアクセスが許可されていません。システム設定の「プライバシーとセキュリティ」>「連絡先」でazooKeyを許可してください。")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                            Spacer()
+                            Button("システム設定を開く") {
+                                self.openContactsPrivacySettings()
+                            }
+                        }
+                    }
                 }
             } header: {
                 Label("ユーザ辞書", systemImage: "book.closed")
