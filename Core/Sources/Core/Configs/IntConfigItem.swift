@@ -26,3 +26,14 @@ extension Config {
         public static let key = "dev.ensan.inputmethod.azooKeyMac.preference.zenzaiInferenceLimit"
     }
 }
+
+extension Config {
+    /// 変換候補ウィンドウの文字サイズ（pt）
+    public struct CandidateFontSize: IntConfigItem {
+        public init() {}
+        /// 従来の見た目と同じ値
+        public static let `default` = 18
+        public static let range: ClosedRange<Int> = 12 ... 32
+        public static let key = "dev.ensan.inputmethod.azooKeyMac.preference.candidateFontSize"
+    }
+}
