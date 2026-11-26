@@ -493,10 +493,15 @@ struct ConfigWindow: View {
                         Button("読み込む") {
                             do {
                                 let systemUserDictionaryEntries = try SystemUserDictionaryHelper.fetchEntries()
-                                self.systemUserDictionary.value.items = systemUserDictionaryEntries.map {
-                                    .init(word: $0.phrase, reading: $0.shortcut)
-                                }
-                                self.systemUserDictionary.value.lastUpdate = .now
+                                self.systemUserDictionary.value = .init(
+                                    lastUpdate: .now,
+                                    items: systemUserDictionaryEntries.map {
+                                        .init(word: $0.phrase, reading: $0.shortcut)
+                                    },
+                                    sourceModificationDate: SystemUserDictionaryHelper.sourceModificationDate(
+                                        databaseURL: SystemUserDictionaryHelper.defaultDatabaseURL
+                                    )
+                                )
                                 self.systemUserDictionaryUpdateMessage = .successfulUpdate
                                 self.exportUserDictionary()
                             } catch {

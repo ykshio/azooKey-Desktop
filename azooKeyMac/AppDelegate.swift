@@ -54,7 +54,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private lazy var userDictionaryReloader = UserDictionaryReloader(
         directoryURL: CompiledUserDictionaryStore.directoryURL(memoryDirectoryURL: AppGroup.memoryDirectoryURL()),
         entriesProvider: {
-            try CompiledUserDictionaryStore.currentEntries()
+            // 取り込み済みのmacOSのユーザ辞書が更新されていれば、先に読み直しておく
+            SystemUserDictionaryHelper.refreshIfNeeded(databaseURL: SystemUserDictionaryHelper.defaultDatabaseURL)
+            return try CompiledUserDictionaryStore.currentEntries()
         },
         builder: { entries, directoryURL in
             try CompiledUserDictionaryStore.rebuild(entries: entries, directoryURL: directoryURL)
