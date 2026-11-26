@@ -47,6 +47,8 @@ public enum ClientAction {
     case submitHankakuKatakanaCandidate
     case submitFullWidthRomanCandidate
     case submitHalfWidthRomanCandidate
+    /// Fnキー（Ctrl+J等）での変換結果を確定せずに表示する
+    case previewModifiedCandidate(ModifiedCandidateKind)
 
     // PredictiveSuggestion
     case acceptPredictionCandidate
@@ -71,6 +73,15 @@ public enum ClientAction {
     case submitSelectedCandidateAndEnterUnicodeInputMode
 
     case stopComposition
+}
+
+/// Fnキー（Ctrl+J等）での変換の種類
+public enum ModifiedCandidateKind: Sendable, Equatable {
+    case hiragana
+    case katakana
+    case hankakuKatakana
+    case fullWidthRoman
+    case halfWidthRoman
 }
 
 public enum ClientActionCallback {

@@ -150,18 +150,8 @@ public enum InputState: Sendable, Hashable {
                     return (.enterFirstCandidatePreviewMode, .transition(.previewing))
                 }
             case let .function(function):
-                switch function {
-                case .six:
-                    return (.submitHiraganaCandidate, .transition(.none))
-                case .seven:
-                    return (.submitKatakanaCandidate, .transition(.none))
-                case .eight:
-                    return (.submitHankakuKatakanaCandidate, .transition(.none))
-                case .nine:
-                    return (.submitFullWidthRomanCandidate, .transition(.none))
-                case .ten:
-                    return (.submitHalfWidthRomanCandidate, .transition(.none))
-                }
+                // macOS標準と同様に、変換結果を確定せずに表示する
+                return (.previewModifiedCandidate(function.modifiedCandidateKind), .transition(.previewing))
             case .forget:
                 return (.consume, .fallthrough)
             case .tab:
@@ -217,18 +207,8 @@ public enum InputState: Sendable, Hashable {
             case .escape:
                 return (.hideCandidateWindow, .transition(.composing))
             case let .function(function):
-                switch function {
-                case .six:
-                    return (.submitHiraganaCandidate, .transition(.none))
-                case .seven:
-                    return (.submitKatakanaCandidate, .transition(.none))
-                case .eight:
-                    return (.submitHankakuKatakanaCandidate, .transition(.none))
-                case .nine:
-                    return (.submitFullWidthRomanCandidate, .transition(.none))
-                case .ten:
-                    return (.submitHalfWidthRomanCandidate, .transition(.none))
-                }
+                // macOS標準と同様に、変換結果を確定せずに表示する
+                return (.previewModifiedCandidate(function.modifiedCandidateKind), .transition(.previewing))
             case .英数:
                 return (.selectInputLanguage(.english), .fallthrough)
             case .かな:
@@ -412,6 +392,18 @@ public enum InputState: Sendable, Hashable {
             case .英数, .かな, .tab, .forget, .function, .navigation, .editSegment, .suggest, .transformSelectedText, .deadKey, .startUnicodeInput, .unknown:
                 return (.consume, .fallthrough)
             }
+        }
+    }
+}
+
+extension UserAction.Function {
+    var modifiedCandidateKind: ModifiedCandidateKind {
+        switch self {
+        case .six: .hiragana
+        case .seven: .katakana
+        case .eight: .hankakuKatakana
+        case .nine: .fullWidthRoman
+        case .ten: .halfWidthRoman
         }
     }
 }

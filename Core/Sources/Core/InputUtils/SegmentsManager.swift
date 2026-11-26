@@ -65,6 +65,8 @@ public final class SegmentsManager {
     private var rawCandidates: ConversionResult?
 
     private var selectionIndex: Int?
+    /// Fnキー（Ctrl+J等）で変換した結果。previewing中はこれを未確定文字列として表示する
+    private var modifiedPreviewCandidate: Candidate?
     private var didExperienceSegmentEdition = false
     private var lastOperation: Operation = .other
     private var shouldShowCandidateWindow = false
@@ -280,6 +282,7 @@ public final class SegmentsManager {
         self.lastOperation = .other
         self.shouldShowCandidateWindow = false
         self.selectionIndex = nil
+        self.modifiedPreviewCandidate = nil
         self.resetAdditionalCandidates()
         self.backspaceAdjustedPredictionCandidate = nil
         self.backspaceTypoCorrectionLock = nil
@@ -304,6 +307,7 @@ public final class SegmentsManager {
     /// 変換キーを押したタイミングで入力の区切りを示す
     @MainActor
     public func insertCompositionSeparator(inputStyle: InputStyle, skipUpdate: Bool = false) {
+        self.modifiedPreviewCandidate = nil
         guard self.composingText.input.last?.piece != .compositionSeparator else {
             // すでに末尾がcompositionSeparatorの場合は何もしない
             return
@@ -318,6 +322,7 @@ public final class SegmentsManager {
 
     @MainActor
     public func insertAtCursorPosition(_ string: String, inputStyle: InputStyle) {
+        self.modifiedPreviewCandidate = nil
         self.lastInputStyle = inputStyle
         self.composingText.insertAtCursorPosition(string, inputStyle: inputStyle)
         self.lastOperation = .insert
@@ -328,6 +333,7 @@ public final class SegmentsManager {
 
     @MainActor
     public func insertAtCursorPosition(pieces: [InputPiece], inputStyle: InputStyle) {
+        self.modifiedPreviewCandidate = nil
         self.lastInputStyle = inputStyle
         self.composingText.insertAtCursorPosition(pieces.map { .init(piece: $0, inputStyle: inputStyle) })
         self.lastOperation = .insert
@@ -338,6 +344,7 @@ public final class SegmentsManager {
 
     @MainActor
     public func editSegment(count: Int) {
+        self.modifiedPreviewCandidate = nil
         // 現在選ばれているprefix candidateが存在する場合、まずそれに合わせてカーソルを移動する
         if let selectionIndex, let candidates, candidates.indices.contains(selectionIndex) {
             var afterComposingText = self.composingText
@@ -369,6 +376,7 @@ public final class SegmentsManager {
 
     @MainActor
     public func deleteBackwardFromCursorPosition(count: Int = 1) {
+        self.modifiedPreviewCandidate = nil
         var previousComposingText = self.composingText.prefixToCursorPosition()
         if !self.composingText.isAtEndIndex {
             // 右端に持っていく
@@ -605,6 +613,7 @@ public final class SegmentsManager {
     }
 
     public func requestSetCandidateWindowState(visible: Bool) {
+        self.modifiedPreviewCandidate = nil
         self.shouldShowCandidateWindow = visible
     }
 
@@ -841,7 +850,42 @@ public final class SegmentsManager {
     }
 
     @MainActor
+    public func getModifiedCandidate(kind: ModifiedCandidateKind, inputState: InputState) -> Candidate {
+        switch kind {
+        case .hiragana:
+            self.getModifiedRubyCandidate(inputState: inputState) { $0.toHiragana() }
+        case .katakana:
+            self.getModifiedRubyCandidate(inputState: inputState) { $0.toKatakana() }
+        case .hankakuKatakana:
+            self.getModifiedRubyCandidate(inputState: inputState) {
+                $0.toKatakana().applyingTransform(.fullwidthToHalfwidth, reverse: false) ?? $0
+            }
+        case .fullWidthRoman:
+            self.getModifiedRomanCandidate(inputState: inputState) {
+                $0.applyingTransform(.fullwidthToHalfwidth, reverse: true) ?? $0
+            }
+        case .halfWidthRoman:
+            self.getModifiedRomanCandidate(inputState: inputState) {
+                $0.applyingTransform(.fullwidthToHalfwidth, reverse: false) ?? $0
+            }
+        }
+    }
+
+    /// Fnキー（Ctrl+J等）での変換結果を、確定せずにpreviewingの未確定文字列として表示する
+    @MainActor
+    public func previewModifiedCandidate(kind: ModifiedCandidateKind, inputState: InputState) {
+        let candidate = self.getModifiedCandidate(kind: kind, inputState: inputState)
+        self.shouldShowCandidateWindow = false
+        self.modifiedPreviewCandidate = candidate
+    }
+
+    @MainActor
     public func commitMarkedText(inputState: InputState) -> String {
+        if inputState == .previewing, let candidate = self.modifiedPreviewCandidate {
+            self.prefixCandidateCommited(candidate, leftSideContext: "")
+            self.stopComposition()
+            return candidate.text
+        }
         let markedText = self.getCurrentMarkedText(inputState: inputState)
         let text = markedText.reduce(into: "") {$0.append(contentsOf: $1.content)}
         if let candidate = self.candidates?.first(where: {$0.text == text}) {
@@ -1111,7 +1155,9 @@ public final class SegmentsManager {
             }
             return MarkedText(text: [.init(content: text, focus: .none)], selectionRange: .notFound)
         case .previewing:
-            if let fullCandidate = self.rawCandidates?.mainResults.first,
+            if let modifiedPreviewCandidate {
+                return MarkedText(text: [.init(content: modifiedPreviewCandidate.text, focus: .none)], selectionRange: .notFound)
+            } else if let fullCandidate = self.rawCandidates?.mainResults.first,
                self.composingText.isWholeComposingText(composingCount: fullCandidate.composingCount) {
                 return MarkedText(text: [.init(content: fullCandidate.text, focus: .none)], selectionRange: .notFound)
             } else {
