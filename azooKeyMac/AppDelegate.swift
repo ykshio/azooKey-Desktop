@@ -49,14 +49,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         learningDataCommitScheduler.postponeIfScheduled(after: Self.learningDataCommitDelay)
     }
 
+    /// 連絡先の氏名をユーザ辞書に流し込む
+    let contactsNameProvider = ContactsNameProvider()
+
     /// ユーザ辞書の書き出しと変換器への再読込を受け持つ
     @MainActor
     private lazy var userDictionaryReloader = UserDictionaryReloader(
         directoryURL: CompiledUserDictionaryStore.directoryURL(memoryDirectoryURL: AppGroup.memoryDirectoryURL()),
-        entriesProvider: {
+        entriesProvider: { [contactsNameProvider] in
             // 取り込み済みのmacOSのユーザ辞書が更新されていれば、先に読み直しておく
             SystemUserDictionaryHelper.refreshIfNeeded(databaseURL: SystemUserDictionaryHelper.defaultDatabaseURL)
-            return try CompiledUserDictionaryStore.currentEntries()
+            return try CompiledUserDictionaryStore.currentEntries() + contactsNameProvider.dictionaryEntries()
         },
         builder: { entries, directoryURL in
             try CompiledUserDictionaryStore.rebuild(entries: entries, directoryURL: directoryURL)
