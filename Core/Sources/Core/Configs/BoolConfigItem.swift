@@ -69,3 +69,12 @@ extension Config {
         public static let key: String = "dev.ensan.inputmethod.azooKeyMac.preference.includeContextInAITransform"
     }
 }
+
+extension Config {
+    /// 連絡先の氏名を変換に使う設定
+    public struct ContactsNameConversion: BoolConfigItem {
+        public init() {}
+        static let `default` = false
+        public static let key: String = "dev.ensan.inputmethod.azooKeyMac.preference.contactsNameConversion"
+    }
+}
