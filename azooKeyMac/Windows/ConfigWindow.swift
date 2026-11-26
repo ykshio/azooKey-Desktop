@@ -22,6 +22,7 @@ struct ConfigWindow: View {
     @ConfigState private var debugTypoCorrection = Config.DebugTypoCorrection()
     @ConfigState private var userDictionary = Config.UserDictionary()
     @ConfigState private var systemUserDictionary = Config.SystemUserDictionary()
+    @ConfigState private var userDictionaryLoadStatus = Config.UserDictionaryLoadStatus()
     @ConfigState private var keyboardLayout = Config.KeyboardLayout()
     @ConfigState private var aiBackend = Config.AIBackendPreference()
     @ConfigState private var transformShortcut = Config.TransformShortcut()
@@ -511,6 +512,22 @@ struct ConfigWindow: View {
                     }
                 } label: {
                     Text("システムのユーザ辞書")
+                }
+                LabeledContent {
+                    VStack(alignment: .trailing, spacing: 2) {
+                        if let lastLoadedAt = self.userDictionaryLoadStatus.value.lastLoadedAt {
+                            Text(lastLoadedAt.formatted(date: .numeric, time: .standard))
+                        } else {
+                            Text("まだ読み込まれていません")
+                        }
+                        if self.userDictionaryLoadStatus.value.isUsingPreviousDictionaryAfterFailure {
+                            Text("読み込みに失敗したため、直前の辞書を使っています")
+                                .font(.caption)
+                                .foregroundStyle(.red)
+                        }
+                    }
+                } label: {
+                    Text("最終読み込み")
                 }
             } header: {
                 Label("ユーザ辞書", systemImage: "book.closed")
