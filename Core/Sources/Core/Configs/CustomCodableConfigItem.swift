@@ -112,8 +112,16 @@ extension Config {
 
     public struct SystemUserDictionary: CustomCodableConfigItem {
         public struct Value: Codable, Sendable {
+            public init(lastUpdate: Date? = nil, items: [UserDictionaryEntry], sourceModificationDate: Date? = nil) {
+                self.lastUpdate = lastUpdate
+                self.items = items
+                self.sourceModificationDate = sourceModificationDate
+            }
+
             public var lastUpdate: Date?
             public var items: [UserDictionaryEntry]
+            /// 取り込んだときのデータベースの更新日時。変更の検知に使う（旧データには無い）
+            public var sourceModificationDate: Date?
         }
 
         public var items: Value = Self.default

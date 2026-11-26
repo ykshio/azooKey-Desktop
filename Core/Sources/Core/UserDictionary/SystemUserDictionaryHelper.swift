@@ -66,61 +66,90 @@ public enum SystemUserDictionaryHelper: Sendable {
     }
     #endif
 
-    @MainActor public static func fetchEntries() throws(FetchError) -> [Entry] {
+    #if os(macOS)
+    /// macOSのユーザ辞書（テキスト置換）のデータベース
+    public static var defaultDatabaseURL: URL {
+        // サンドボックス内では homeDirectoryForCurrentUser がコンテナを指すため、実際のホームを組み立てる
+        URL(fileURLWithPath: "/Users/\(NSUserName())/Library/KeyboardServices/TextReplacements.db", isDirectory: false)
+    }
+    #endif
+
+    /// データベースの更新日時。SQLiteは変更を`-wal`ファイルに書くことがあるため、両方の新しい方を返す
+    public static func sourceModificationDate(databaseURL: URL) -> Date? {
+        let walURL = URL(fileURLWithPath: databaseURL.path + "-wal", isDirectory: false)
+        return [databaseURL, walURL]
+            .compactMap { url in
+                (try? FileManager.default.attributesOfItem(atPath: url.path))?[.modificationDate] as? Date
+            }
+            .max()
+    }
+
+    /// 取り込み済みのシステム辞書を読み直すべきか
+    ///
+    /// 一度も取り込んでいない（または「リセット」した）場合は読み直さない。利用者が選んだときだけ使うため。
+    public static func shouldRefresh(value: Config.SystemUserDictionary.Value, currentSourceModificationDate: Date?) -> Bool {
+        guard value.lastUpdate != nil, let currentSourceModificationDate else {
+            return false
+        }
+        return value.sourceModificationDate != currentSourceModificationDate
+    }
+
+    /// 取り込み済みで、データベースが更新されていれば、画面を出さずに読み直して設定に保存する
+    ///
+    /// 読めない場合は何もしない（直前に取り込んだ内容を使い続ける）。読み直したら`true`
+    @discardableResult
+    public static func refreshIfNeeded(databaseURL: URL) -> Bool {
+        let item = Config.SystemUserDictionary()
+        guard let value = try? CompiledUserDictionaryStore.strictValue(of: item) else {
+            return false
+        }
+        let modificationDate = Self.sourceModificationDate(databaseURL: databaseURL)
+        guard Self.shouldRefresh(value: value, currentSourceModificationDate: modificationDate) else {
+            return false
+        }
+        do {
+            let entries = try Self.readEntries(databaseURL: databaseURL)
+            item.value = .init(
+                lastUpdate: Date(),
+                items: entries.map { .init(word: $0.phrase, reading: $0.shortcut) },
+                sourceModificationDate: modificationDate
+            )
+            return true
+        } catch {
+            print("Failed to refresh system user dictionary: \(error)")
+            return false
+        }
+    }
+
+    /// データベースから読む。権限が無い場合も画面は出さずに失敗する
+    public static func readEntries(databaseURL: URL) throws(FetchError) -> [Entry] {
         #if !os(macOS)
         throw .unsupportedOperatingSystem
         #else
-        let userName = NSUserName()
-        var dbPath = "/Users/\(userName)/Library/KeyboardServices/TextReplacements.db"
+        let dbPath = databaseURL.path
         guard FileManager.default.fileExists(atPath: dbPath) else {
             throw .fileNotExist(dbPath)
         }
-        // 事前に取得を試みる
-        print("dbPath", dbPath)
-
-        let url: URL
-        let needStop: Bool
-        if !FileManager.default.isReadableFile(atPath: dbPath) {
-            #if canImport(AppKit)
-            guard let authorizedURL = Self.promptUserForTextReplacementDirectory(), authorizedURL.startAccessingSecurityScopedResource() else {
-                throw FetchError.fileNotReadable(dbPath)
-            }
-            needStop = true
-            url = authorizedURL
-            #else
-            throw FetchError.fileNotReadable(dbPath)
-            #endif
-        } else {
-            needStop = false
-            url = URL(fileURLWithPath: dbPath)
-        }
-        defer {
-            if needStop {
-                url.stopAccessingSecurityScopedResource()
-            }
+        guard FileManager.default.isReadableFile(atPath: dbPath) else {
+            throw .fileNotReadable(dbPath)
         }
 
         var db: OpaquePointer?
-
         let openStatus = sqlite3_open_v2(dbPath, &db, SQLITE_OPEN_READONLY, nil)
         guard openStatus == SQLITE_OK else {
-            print("Failed to open database")
+            sqlite3_close(db)
             throw .failedToOpenDatabase(status: openStatus)
         }
-
         defer {
             sqlite3_close(db)
         }
 
         let query = "SELECT ZSHORTCUT, ZPHRASE FROM ZTEXTREPLACEMENTENTRY"
         var statement: OpaquePointer?
-
         let prepareStatus = sqlite3_prepare_v2(db, query, -1, &statement, nil)
         guard prepareStatus == SQLITE_OK else {
-            print("Failed to prepare statement")
             throw .failedToPrepareStatement(status: prepareStatus)
         }
-
         defer {
             sqlite3_finalize(statement)
         }
@@ -129,13 +158,37 @@ public enum SystemUserDictionaryHelper: Sendable {
         while sqlite3_step(statement) == SQLITE_ROW {
             if let shortcutC = sqlite3_column_text(statement, 0),
                let phraseC = sqlite3_column_text(statement, 1) {
-                let shortcut = String(cString: shortcutC)
-                let phrase = String(cString: phraseC)
-                entries.append(Entry(shortcut: shortcut, phrase: phrase))
+                entries.append(Entry(shortcut: String(cString: shortcutC), phrase: String(cString: phraseC)))
             }
         }
-
         return entries
+        #endif
+    }
+
+    @MainActor public static func fetchEntries() throws(FetchError) -> [Entry] {
+        #if !os(macOS)
+        throw .unsupportedOperatingSystem
+        #else
+        let databaseURL = Self.defaultDatabaseURL
+        let dbPath = databaseURL.path
+        guard FileManager.default.fileExists(atPath: dbPath) else {
+            throw .fileNotExist(dbPath)
+        }
+        if FileManager.default.isReadableFile(atPath: dbPath) {
+            return try Self.readEntries(databaseURL: databaseURL)
+        }
+        // 読めない場合は、利用者にフォルダを選んでもらってから読む
+        #if canImport(AppKit)
+        guard let authorizedURL = Self.promptUserForTextReplacementDirectory(), authorizedURL.startAccessingSecurityScopedResource() else {
+            throw FetchError.fileNotReadable(dbPath)
+        }
+        defer {
+            authorizedURL.stopAccessingSecurityScopedResource()
+        }
+        return try Self.readEntries(databaseURL: databaseURL)
+        #else
+        throw FetchError.fileNotReadable(dbPath)
+        #endif
         #endif
     }
 }
