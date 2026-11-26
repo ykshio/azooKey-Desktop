@@ -58,9 +58,9 @@ class CandidatesViewController: BaseCandidateViewController {
 
         if numberRange.location != NSNotFound {
             attributedString.addAttributes([
-                .font: NSFont.monospacedSystemFont(ofSize: 8, weight: .regular),
+                .font: NSFont.monospacedSystemFont(ofSize: self.metrics.indexFontSize, weight: .regular),
                 .foregroundColor: currentSelectedRow == row ? NSColor.white : NSColor.gray,
-                .baselineOffset: 2
+                .baselineOffset: self.metrics.indexBaselineOffset
             ], range: numberRange)
         }
 
@@ -70,7 +70,7 @@ class CandidatesViewController: BaseCandidateViewController {
             let annotationString = NSAttributedString(
                 string: annotationText,
                 attributes: [
-                    .font: NSFont.systemFont(ofSize: 12),
+                    .font: NSFont.systemFont(ofSize: self.metrics.annotationFontSize),
                     .foregroundColor: currentSelectedRow == row ? NSColor.white : NSColor.systemGray
                 ]
             )
@@ -115,18 +115,23 @@ class CandidatesViewController: BaseCandidateViewController {
 
     override func getWindowWidth(maxContentWidth: CGFloat) -> CGFloat {
         let hasAnnotation = self.candidates.contains { $0.displayContext.annotationText != nil }
+        let annotationWidth = hasAnnotation ? self.metrics.annotationWidth : 0
         if self.showCandidateIndex {
-            return maxContentWidth + 48 + (hasAnnotation ? 56 : 0)
+            return maxContentWidth + self.metrics.indexedHorizontalPadding + annotationWidth
         } else {
-            return maxContentWidth + 20 + (hasAnnotation ? 56 : 0)
+            return maxContentWidth + 20 + annotationWidth
         }
     }
 }
 
 class PredictionCandidatesViewController: BaseCandidateViewController {
-    private let prefixTabStop: CGFloat = 24
     private let prefixSymbolName = "arrow.forward.to.line.compact"
-    private let prefixFontSize: CGFloat = 12
+    private var prefixTabStop: CGFloat {
+        self.metrics.prefixTabStop
+    }
+    private var prefixFontSize: CGFloat {
+        self.metrics.prefixSymbolSize
+    }
 
     override var numberOfVisibleRows: Int {
         min(3, self.tableView.numberOfRows)
@@ -151,7 +156,7 @@ class PredictionCandidatesViewController: BaseCandidateViewController {
         let candidateAttributed = NSAttributedString(
             string: candidateText,
             attributes: [
-                .font: NSFont.systemFont(ofSize: 18),
+                .font: NSFont.systemFont(ofSize: self.metrics.fontSize),
                 .foregroundColor: candidateColor
             ]
         )

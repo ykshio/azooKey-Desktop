@@ -94,6 +94,8 @@ class BaseCandidateViewController: NSViewController {
     internal var candidates: [CandidatePresentation] = []
     internal var tableView: NSTableView!
     internal var currentSelectedRow: Int = -1
+    /// 文字サイズの設定から決まる寸法。候補の更新ごとに設定を読み直す
+    internal var metrics: CandidateWindowMetrics = .current
 
     override func loadView() {
         // 親ビュー（ZStackのような役割）
@@ -145,7 +147,7 @@ class BaseCandidateViewController: NSViewController {
         self.tableView.delegate = self
         self.tableView.dataSource = self
         self.tableView.selectionHighlightStyle = .regular
-        self.tableView.rowHeight = 32
+        self.tableView.rowHeight = self.metrics.rowHeight
 
         self.view = containerView
     }
@@ -182,6 +184,7 @@ class BaseCandidateViewController: NSViewController {
     func updateCandidatePresentations(_ candidates: [CandidatePresentation], selectionIndex: Int?, cursorLocation: CGPoint) {
         self.candidates = candidates
         self.currentSelectedRow = selectionIndex ?? -1
+        self.updateMetricsIfNeeded()
         self.tableView.reloadData()
         self.resizeWindowToFitContent(cursorLocation: cursorLocation)
         // 描画による選択更新をユーザー操作として通知しない。
@@ -201,6 +204,20 @@ class BaseCandidateViewController: NSViewController {
 
     internal func updateSelectionCallback(_ row: Int, notifySelectionChange: Bool) {}
 
+    private func updateMetricsIfNeeded() {
+        let metrics = CandidateWindowMetrics.current
+        guard metrics != self.metrics else {
+            return
+        }
+        self.metrics = metrics
+        self.tableView.rowHeight = metrics.rowHeight
+    }
+
+    internal func applyFonts(to cell: CandidateTableCellView) {
+        cell.candidateTextField.font = NSFont.systemFont(ofSize: self.metrics.fontSize)
+        cell.candidateAnnotationTextField.font = NSFont.systemFont(ofSize: self.metrics.annotationFontSize)
+    }
+
     internal func updateVisibleRows() {
         let visibleRows = self.tableView.rows(in: self.tableView.visibleRect)
         for row in visibleRows.lowerBound..<visibleRows.upperBound {
@@ -210,8 +227,9 @@ class BaseCandidateViewController: NSViewController {
         }
     }
 
-    func getMaxTextWidth(candidates: some Sequence<String>, font: NSFont = .systemFont(ofSize: 18)) -> CGFloat {
-        candidates.reduce(0) { maxWidth, candidate in
+    func getMaxTextWidth(candidates: some Sequence<String>, font: NSFont? = nil) -> CGFloat {
+        let font = font ?? .systemFont(ofSize: self.metrics.fontSize)
+        return candidates.reduce(0) { maxWidth, candidate in
             let attributedString = NSAttributedString(
                 string: candidate,
                 attributes: [.font: font]
@@ -305,6 +323,7 @@ extension BaseCandidateViewController: NSTableViewDelegate, NSTableViewDataSourc
         }
 
         if let cell = cell {
+            applyFonts(to: cell)
             configureCellView(cell, forRow: row)
         }
 
