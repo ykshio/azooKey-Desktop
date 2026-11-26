@@ -8,7 +8,7 @@
 	<true/>
 	<key>com.apple.security.application-groups</key>
 	<array>
-		<string>group.dev.yuki.inputmethod.azooKeyMac</string>
+		<string>group.dev.ykshio.inputmethod.azooKeyMac</string>
 	</array>
 	<key>com.apple.security.personal-information.addressbook</key>
 	<true/>
