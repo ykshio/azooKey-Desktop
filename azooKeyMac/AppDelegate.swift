@@ -49,48 +49,32 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         learningDataCommitScheduler.postponeIfScheduled(after: Self.learningDataCommitDelay)
     }
 
-    private var userDictionaryMemoryDirectoryURL: URL {
-        AppGroup.memoryDirectoryURL()
-    }
-
-    private func exportInitialUserDictionaryIfNeeded() {
-        let memoryDirectoryURL = self.userDictionaryMemoryDirectoryURL
-        Task.detached(priority: .utility) {
-            do {
-                if !CompiledUserDictionaryStore.hasExportedDictionary(memoryDirectoryURL: memoryDirectoryURL) {
-                    try CompiledUserDictionaryStore.exportCurrentDictionaries(memoryDirectoryURL: memoryDirectoryURL)
-                }
-                await MainActor.run {
-                    self.reloadUserDictionary(memoryDirectoryURL: memoryDirectoryURL)
-                }
-            } catch {
-                print("Failed to export compiled user dictionary: \(error)")
-            }
+    /// ユーザ辞書の書き出しと変換器への再読込を受け持つ
+    @MainActor
+    private lazy var userDictionaryReloader = UserDictionaryReloader(
+        directoryURL: CompiledUserDictionaryStore.directoryURL(memoryDirectoryURL: AppGroup.memoryDirectoryURL()),
+        entriesProvider: {
+            try CompiledUserDictionaryStore.currentEntries()
+        },
+        builder: { entries, directoryURL in
+            try CompiledUserDictionaryStore.rebuild(entries: entries, directoryURL: directoryURL)
+        },
+        reload: { [weak self] directoryURL in
+            self?.kanaKanjiConverter.updateUserDictionaryURL(directoryURL, forceReload: true)
         }
+    )
+
+    /// 元データや辞書ファイルが変わっていれば再構築・再読込する（入力セッション開始時など）
+    @MainActor
+    func reloadUserDictionaryIfNeeded() {
+        self.userDictionaryReloader.reloadIfNeeded()
     }
 
+    /// 辞書を編集したときに呼ぶ。必ず書き出し直してから再読込する
+    @MainActor
     @discardableResult
     func exportUserDictionaryAndReloadConverter() -> Task<Bool, Never> {
-        let memoryDirectoryURL = self.userDictionaryMemoryDirectoryURL
-        return Task.detached(priority: .utility) {
-            do {
-                try CompiledUserDictionaryStore.exportCurrentDictionaries(memoryDirectoryURL: memoryDirectoryURL)
-                await MainActor.run {
-                    self.reloadUserDictionary(memoryDirectoryURL: memoryDirectoryURL)
-                }
-                return true
-            } catch {
-                print("Failed to export compiled user dictionary: \(error)")
-                return false
-            }
-        }
-    }
-
-    private func reloadUserDictionary(memoryDirectoryURL: URL) {
-        self.kanaKanjiConverter.updateUserDictionaryURL(
-            CompiledUserDictionaryStore.directoryURL(memoryDirectoryURL: memoryDirectoryURL),
-            forceReload: true
-        )
+        self.userDictionaryReloader.reloadIfNeeded(forceRebuild: true)
     }
 
     private static func buildSwiftUIWindow(
@@ -152,7 +136,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         Task {
             await Config.OpenAiApiKey.loadFromKeychain()
         }
-        self.exportInitialUserDictionaryIfNeeded()
+        self.reloadUserDictionaryIfNeeded()
 
         // Check if mainMenu exists, or create it
         if NSApp.mainMenu == nil {
