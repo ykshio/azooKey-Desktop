@@ -25,6 +25,7 @@ struct ConfigWindow: View {
     @ConfigState private var keyboardLayout = Config.KeyboardLayout()
     @ConfigState private var aiBackend = Config.AIBackendPreference()
     @ConfigState private var transformShortcut = Config.TransformShortcut()
+    @ConfigState private var candidateFontSize = Config.CandidateFontSize()
 
     @State private var selectedTab: Tab = .basic
     @State private var zenzaiProfileHelpPopover = false
@@ -553,6 +554,23 @@ struct ConfigWindow: View {
                 }
             } header: {
                 Label("入力オプション", systemImage: "character.cursor.ibeam")
+            }
+
+            Section {
+                LabeledContent("候補の文字サイズ") {
+                    HStack {
+                        Text("\(self.candidateFontSize.value) pt")
+                            .monospacedDigit()
+                        Stepper("", value: $candidateFontSize, in: Config.CandidateFontSize.range)
+                            .labelsHidden()
+                        Button("標準に戻す") {
+                            self.$candidateFontSize.wrappedValue = Config.CandidateFontSize.default
+                        }
+                        .disabled(self.candidateFontSize.value == Config.CandidateFontSize.default)
+                    }
+                }
+            } header: {
+                Label("候補ウィンドウ", systemImage: "textformat.size")
             }
 
             Section {
