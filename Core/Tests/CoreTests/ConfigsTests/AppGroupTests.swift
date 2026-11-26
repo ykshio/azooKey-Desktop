@@ -12,7 +12,7 @@ struct AppGroupTests {
 
         #expect(
             AppGroup.containerURL(homeDirectoryURL: homeDirectoryURL).path
-                == "/Users/example/Library/Group Containers/group.com.azookey.mac"
+                == "/Users/example/Library/Group Containers/group.dev.yuki.inputmethod.azooKeyMac"
         )
     }
 }
