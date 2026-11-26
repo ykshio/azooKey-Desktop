@@ -472,6 +472,8 @@ class azooKeyMacInputController: IMKInputController, NSMenuItemValidation { // s
             self.submitCandidate(self.segmentsManager.getModifiedRomanCandidate {
                 $0.applyingTransform(.fullwidthToHalfwidth, reverse: false)!
             })
+        case .previewModifiedCandidate(let kind):
+            self.segmentsManager.previewModifiedCandidate(kind: kind, inputState: self.inputState)
         case .enableDebugWindow:
             self.segmentsManager.requestDebugWindowMode(enabled: true)
         case .disableDebugWindow:
