@@ -128,6 +128,17 @@ extension Config {
 }
 
 extension Config {
+    /// ユーザ辞書の読み込み状況
+    public struct UserDictionaryLoadStatus: CustomCodableConfigItem {
+        public typealias Value = UserDictionaryReloader.Status
+
+        public init() {}
+        public static let `default`: Value = .init()
+        public static let key: String = "dev.ensan.inputmethod.azooKeyMac.preference.user_dictionary_load_status"
+    }
+}
+
+extension Config {
     /// Zenzaiのパーソナライズ強度
     public struct ZenzaiPersonalizationLevel: CustomCodableConfigItem {
         public enum Value: String, Codable, Equatable, Hashable, Sendable {
