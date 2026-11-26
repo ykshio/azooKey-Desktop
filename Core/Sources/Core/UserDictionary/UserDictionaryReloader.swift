@@ -103,6 +103,12 @@ public final class UserDictionaryReloader {
         return task
     }
 
+    private struct Outcome: Sendable {
+        var action: Action
+        var fingerprint: String
+        var modificationDate: Date?
+    }
+
     private func performReload(forceRebuild: Bool) async -> Bool {
         let directoryURL = self.directoryURL
         let entriesProvider = self.entriesProvider
@@ -110,7 +116,7 @@ public final class UserDictionaryReloader {
         let exportedFingerprint = self.loadStatus().exportedFingerprint
         let loadedModificationDate = self.loadedModificationDate
 
-        let result: Result<(action: Action, fingerprint: String, modificationDate: Date?), any Error> = await Task.detached(priority: .utility) {
+        let result: Result<Outcome, any Error> = await Task.detached(priority: .utility) {
             do {
                 let entries = try entriesProvider()
                 let fingerprint = CompiledUserDictionaryStore.fingerprint(of: entries)
@@ -126,7 +132,11 @@ public final class UserDictionaryReloader {
                 if action == .rebuild {
                     try builder(entries, directoryURL)
                 }
-                return .success((action, fingerprint, CompiledUserDictionaryStore.modificationDate(at: directoryURL)))
+                return .success(Outcome(
+                    action: action,
+                    fingerprint: fingerprint,
+                    modificationDate: CompiledUserDictionaryStore.modificationDate(at: directoryURL)
+                ))
             } catch {
                 return .failure(error)
             }
