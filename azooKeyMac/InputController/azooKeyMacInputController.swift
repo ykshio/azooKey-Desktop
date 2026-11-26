@@ -157,6 +157,8 @@ class azooKeyMacInputController: IMKInputController, NSMenuItemValidation { // s
         self.updateTransformSelectedTextMenuItemShortcut()
         // ピン留めプロンプトのキャッシュを更新
         self.reloadPinnedPromptsCache()
+        // ユーザ辞書が更新されていれば反映する（変化が無ければファイルの日時を見るだけ）
+        (NSApplication.shared.delegate as? AppDelegate)?.reloadUserDictionaryIfNeeded()
         self.segmentsManager.activate()
 
         if let client = sender as? IMKTextInput {
