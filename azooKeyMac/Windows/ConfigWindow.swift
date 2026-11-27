@@ -567,27 +567,6 @@ struct ConfigWindow: View {
                             .foregroundStyle(.red)
                     }
                 }
-                LabeledContent {
-                    VStack(alignment: .trailing, spacing: 2) {
-                        if let lastLoadedAt = self.userDictionaryLoadStatus.value.lastLoadedAt {
-                            Text(lastLoadedAt.formatted(date: .numeric, time: .standard))
-                        } else {
-                            Text("まだ読み込まれていません")
-                        }
-                        if self.userDictionaryLoadStatus.value.isUsingPreviousDictionaryAfterFailure {
-                            Text("読み込みに失敗したため、直前の辞書を使っています")
-                                .font(.caption)
-                                .foregroundStyle(.red)
-                        }
-                    }
-                } label: {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("辞書を最後に反映した日時")
-                        Text("単語の編集や、上の項目の切り替えのたびに更新されます")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
                 VStack(alignment: .leading, spacing: 6) {
                     Toggle(
                         "連絡先の氏名を変換に使う",
@@ -613,6 +592,27 @@ struct ConfigWindow: View {
                                 self.openContactsPrivacySettings()
                             }
                         }
+                    }
+                }
+                LabeledContent {
+                    VStack(alignment: .trailing, spacing: 2) {
+                        if let lastLoadedAt = self.userDictionaryLoadStatus.value.lastLoadedAt {
+                            Text(lastLoadedAt.formatted(date: .numeric, time: .standard))
+                        } else {
+                            Text("まだ読み込まれていません")
+                        }
+                        if self.userDictionaryLoadStatus.value.isUsingPreviousDictionaryAfterFailure {
+                            Text("読み込みに失敗したため、直前の辞書を使っています")
+                                .font(.caption)
+                                .foregroundStyle(.red)
+                        }
+                    }
+                } label: {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("辞書を最後に反映した日時")
+                        Text("単語の編集や、上の項目の切り替えのたびに更新されます")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
                 }
             } header: {
