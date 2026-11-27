@@ -14,6 +14,8 @@ final class ContactsNameProvider: @unchecked Sendable {
     private let lock = NSLock()
     /// 取得済みの登録項目。連絡先が変わったら捨て、次の辞書の再読込時に取り直す
     private var cachedEntries: [ContactNameEntries.Entry]?
+    /// 変更通知のたびに進める。取得中に通知を挟んだ結果はキャッシュしない
+    private var generation = 0
     private var observer: (any NSObjectProtocol)?
 
     init() {
@@ -52,6 +54,7 @@ final class ContactsNameProvider: @unchecked Sendable {
     func invalidate() {
         self.lock.withLock {
             self.cachedEntries = nil
+            self.generation += 1
         }
     }
 
@@ -76,6 +79,7 @@ final class ContactsNameProvider: @unchecked Sendable {
             CNContactPhoneticFamilyNameKey,
             CNContactPhoneticGivenNameKey
         ] as [any CNKeyDescriptor]
+        let startGeneration = self.lock.withLock { self.generation }
         let request = CNContactFetchRequest(keysToFetch: keys)
         request.unifyResults = true
 
@@ -92,7 +96,10 @@ final class ContactsNameProvider: @unchecked Sendable {
         }
         let entries = ContactNameEntries.entries(from: names)
         self.lock.withLock {
-            self.cachedEntries = entries
+            // 取得中に連絡先が変わっていたら古い可能性があるので覚えない（次の再読込で取り直す）
+            if self.generation == startGeneration {
+                self.cachedEntries = entries
+            }
         }
         return entries
     }
