@@ -188,7 +188,7 @@ struct ConfigWindow: View {
     /// ひらがな・カタカナすべてと、中国語・韓国語のフォントに欠けがちな日本の漢字を含むものに限る
     private static func japaneseFontFamilies() -> [String] {
         let manager = NSFontManager.shared
-        var required = CharacterSet(charactersIn: "\u{3041}"..."\u{3093}") // ひらがな
+        var required = CharacterSet(charactersIn: "\u{3041}"..."\u{3094}") // ひらがな（「ゔ」まで。小書きの「ゕ」「ゖ」は多くの日本語フォントに無いので含めない）
         required.formUnion(CharacterSet(charactersIn: "\u{30A1}"..."\u{30F6}")) // カタカナ
         required.formUnion(CharacterSet(charactersIn: "日本語漢字変換辻込働峠畑栃岡崎塚藤"))
         return manager.availableFontFamilies.filter { family in
