@@ -71,7 +71,6 @@ struct ConfigWindow: View {
 
     private enum SystemUserDictionaryUpdateMessage {
         case error(any Error)
-        case successfulUpdate
     }
 
     private var azooKeyApplicationSupportDirectoryURL: URL {
@@ -194,6 +193,34 @@ struct ConfigWindow: View {
                 return false
             }
             return font.coveredCharacterSet.isSuperset(of: required)
+        }
+    }
+
+    /// システムのユーザ辞書の利用を切り替える。オンにするとその場で読み込み、以降は変更を自動で反映する
+    private func setSystemUserDictionaryEnabled(_ enabled: Bool) {
+        guard enabled else {
+            self.systemUserDictionary.value.lastUpdate = nil
+            self.systemUserDictionary.value.items = []
+            self.systemUserDictionaryUpdateMessage = nil
+            self.exportUserDictionary()
+            return
+        }
+        do {
+            let entries = try SystemUserDictionaryHelper.fetchEntries()
+            self.systemUserDictionary.value = .init(
+                lastUpdate: .now,
+                items: entries.map {
+                    .init(word: $0.phrase, reading: $0.shortcut)
+                },
+                sourceModificationDate: SystemUserDictionaryHelper.sourceModificationDate(
+                    databaseURL: SystemUserDictionaryHelper.defaultDatabaseURL
+                )
+            )
+            self.systemUserDictionaryUpdateMessage = nil
+            self.exportUserDictionary()
+        } catch {
+            // 読めなかった場合はオフのまま
+            self.systemUserDictionaryUpdateMessage = .error(error)
         }
     }
 
@@ -532,64 +559,30 @@ struct ConfigWindow: View {
                 } label: {
                     Text("azooKeyユーザ辞書")
                 }
-                LabeledContent {
-                    HStack {
-                        switch self.systemUserDictionaryUpdateMessage {
-                        case .none:
-                            if let updated = self.systemUserDictionary.value.lastUpdate {
-                                let date = updated.formatted(date: .omitted, time: .omitted)
-                                Text("最終更新: \(date) / \(self.systemUserDictionary.value.items.count)件のアイテム")
-                            } else {
-                                Text("未設定")
-                            }
-                        case .error(let error):
-                            Text("読み込みエラー: \(error.localizedDescription)")
-                        case .successfulUpdate:
-                            Text("読み込みに成功しました / \(self.systemUserDictionary.value.items.count)件のアイテム")
-                        }
-                        Button("読み込む") {
-                            do {
-                                let systemUserDictionaryEntries = try SystemUserDictionaryHelper.fetchEntries()
-                                self.systemUserDictionary.value = .init(
-                                    lastUpdate: .now,
-                                    items: systemUserDictionaryEntries.map {
-                                        .init(word: $0.phrase, reading: $0.shortcut)
-                                    },
-                                    sourceModificationDate: SystemUserDictionaryHelper.sourceModificationDate(
-                                        databaseURL: SystemUserDictionaryHelper.defaultDatabaseURL
-                                    )
-                                )
-                                self.systemUserDictionaryUpdateMessage = .successfulUpdate
-                                self.exportUserDictionary()
-                            } catch {
-                                self.systemUserDictionaryUpdateMessage = .error(error)
+                VStack(alignment: .leading, spacing: 4) {
+                    Toggle(
+                        isOn: Binding(
+                            get: { self.systemUserDictionary.value.lastUpdate != nil },
+                            set: { self.setSystemUserDictionaryEnabled($0) }
+                        )
+                    ) {
+                        HStack {
+                            Text("システムのユーザ辞書を使う")
+                            if self.systemUserDictionary.value.lastUpdate != nil {
+                                Text("\(self.systemUserDictionary.value.items.count)件")
+                                    .foregroundStyle(.secondary)
                             }
                         }
-                        Button("リセット") {
-                            self.systemUserDictionary.value.lastUpdate = nil
-                            self.systemUserDictionary.value.items = []
-                            self.systemUserDictionaryUpdateMessage = nil
-                            self.exportUserDictionary()
-                        }
                     }
-                } label: {
-                    Text("システムのユーザ辞書")
-                }
-                LabeledContent {
-                    VStack(alignment: .trailing, spacing: 2) {
-                        if let lastLoadedAt = self.userDictionaryLoadStatus.value.lastLoadedAt {
-                            Text(lastLoadedAt.formatted(date: .numeric, time: .standard))
-                        } else {
-                            Text("まだ読み込まれていません")
-                        }
-                        if self.userDictionaryLoadStatus.value.isUsingPreviousDictionaryAfterFailure {
-                            Text("読み込みに失敗したため、直前の辞書を使っています")
-                                .font(.caption)
-                                .foregroundStyle(.red)
-                        }
+                    Text("macOSの「テキスト置換」に登録した単語を変換候補に加えます。変更は自動で反映されます。")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    if case .error(let error) = self.systemUserDictionaryUpdateMessage {
+                        Text("読み込みエラー: \(error.localizedDescription)")
+                            .font(.caption)
+                            .foregroundStyle(.red)
                     }
-                } label: {
-                    Text("最終読み込み")
                 }
                 VStack(alignment: .leading, spacing: 6) {
                     Toggle(
@@ -616,6 +609,27 @@ struct ConfigWindow: View {
                                 self.openContactsPrivacySettings()
                             }
                         }
+                    }
+                }
+                LabeledContent {
+                    VStack(alignment: .trailing, spacing: 2) {
+                        if let lastLoadedAt = self.userDictionaryLoadStatus.value.lastLoadedAt {
+                            Text(lastLoadedAt.formatted(date: .numeric, time: .standard))
+                        } else {
+                            Text("まだ読み込まれていません")
+                        }
+                        if self.userDictionaryLoadStatus.value.isUsingPreviousDictionaryAfterFailure {
+                            Text("読み込みに失敗したため、直前の辞書を使っています")
+                                .font(.caption)
+                                .foregroundStyle(.red)
+                        }
+                    }
+                } label: {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("辞書を最後に反映した日時")
+                        Text("単語の編集や、上の項目の切り替えのたびに更新されます")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
                 }
             } header: {
