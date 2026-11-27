@@ -185,6 +185,10 @@ struct ConfigWindow: View {
             self.exportUserDictionary()
             return
         }
+        // 読み取り中にテキスト置換が更新されても次回の自動更新で拾えるよう、更新日時は読み取り前に取る
+        let modificationDate = SystemUserDictionaryHelper.sourceModificationDate(
+            databaseURL: SystemUserDictionaryHelper.defaultDatabaseURL
+        )
         do {
             let entries = try SystemUserDictionaryHelper.fetchEntries()
             self.systemUserDictionary.value = .init(
@@ -192,9 +196,7 @@ struct ConfigWindow: View {
                 items: entries.map {
                     .init(word: $0.phrase, reading: $0.shortcut)
                 },
-                sourceModificationDate: SystemUserDictionaryHelper.sourceModificationDate(
-                    databaseURL: SystemUserDictionaryHelper.defaultDatabaseURL
-                )
+                sourceModificationDate: modificationDate
             )
             self.systemUserDictionaryUpdateMessage = nil
             self.exportUserDictionary()
