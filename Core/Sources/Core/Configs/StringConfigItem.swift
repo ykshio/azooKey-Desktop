@@ -76,3 +76,12 @@ extension Config {
         public static let key: String = "dev.ensan.inputmethod.azooKeyMac.preference.PromptHistory"
     }
 }
+
+extension Config {
+    /// 変換候補ウィンドウのフォント（ファミリー名）。空ならシステム標準
+    public struct CandidateFontName: StringConfigItem {
+        public init() {}
+
+        public static let key: String = "dev.ensan.inputmethod.azooKeyMac.preference.candidateFontName"
+    }
+}

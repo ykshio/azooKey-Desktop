@@ -147,7 +147,7 @@ class BaseCandidateViewController: NSViewController {
         self.tableView.delegate = self
         self.tableView.dataSource = self
         self.tableView.selectionHighlightStyle = .regular
-        self.tableView.rowHeight = self.metrics.rowHeight
+        self.tableView.rowHeight = self.metrics.effectiveRowHeight
 
         self.view = containerView
     }
@@ -210,12 +210,12 @@ class BaseCandidateViewController: NSViewController {
             return
         }
         self.metrics = metrics
-        self.tableView.rowHeight = metrics.rowHeight
+        self.tableView.rowHeight = metrics.effectiveRowHeight
     }
 
     internal func applyFonts(to cell: CandidateTableCellView) {
-        cell.candidateTextField.font = NSFont.systemFont(ofSize: self.metrics.fontSize)
-        cell.candidateAnnotationTextField.font = NSFont.systemFont(ofSize: self.metrics.annotationFontSize)
+        cell.candidateTextField.font = self.metrics.candidateFont
+        cell.candidateAnnotationTextField.font = self.metrics.annotationFont
     }
 
     internal func updateVisibleRows() {
@@ -228,7 +228,7 @@ class BaseCandidateViewController: NSViewController {
     }
 
     func getMaxTextWidth(candidates: some Sequence<String>, font: NSFont? = nil) -> CGFloat {
-        let font = font ?? .systemFont(ofSize: self.metrics.fontSize)
+        let font = font ?? self.metrics.candidateFont
         return candidates.reduce(0) { maxWidth, candidate in
             let attributedString = NSAttributedString(
                 string: candidate,

@@ -26,6 +26,9 @@ struct ConfigWindow: View {
     @ConfigState private var aiBackend = Config.AIBackendPreference()
     @ConfigState private var transformShortcut = Config.TransformShortcut()
     @ConfigState private var candidateFontSize = Config.CandidateFontSize()
+    @ConfigState private var candidateFontName = Config.CandidateFontName()
+    /// 日本語を表示できるフォントのファミリー名（設定画面を開いたときに集める）
+    @State private var japaneseFontFamilies: [String] = []
 
     @State private var selectedTab: Tab = .basic
     @State private var zenzaiProfileHelpPopover = false
@@ -174,6 +177,19 @@ struct ConfigWindow: View {
             try fileManager.copyItem(at: sourceURL, to: targetURL)
         } catch {
             // The status check below will surface a notDownloaded/failed state.
+        }
+    }
+
+    /// 日本語（ひらがな・漢字）を表示できるフォントのファミリー名
+    private static func japaneseFontFamilies() -> [String] {
+        let manager = NSFontManager.shared
+        let required = CharacterSet(charactersIn: "あ漢")
+        return manager.availableFontFamilies.filter { family in
+            guard !family.hasPrefix("."),
+                  let font = manager.font(withFamily: family, traits: [], weight: 5, size: 12) else {
+                return false
+            }
+            return font.coveredCharacterSet.isSuperset(of: required)
         }
     }
 
@@ -567,6 +583,21 @@ struct ConfigWindow: View {
                             self.$candidateFontSize.wrappedValue = Config.CandidateFontSize.default
                         }
                         .disabled(self.candidateFontSize.value == Config.CandidateFontSize.default)
+                    }
+                }
+                Picker("候補のフォント", selection: $candidateFontName) {
+                    Text("システム標準").tag("")
+                    // 一覧に無いフォント（削除されたものなど）が設定されていても選択状態を保つ
+                    if !self.candidateFontName.value.isEmpty && !self.japaneseFontFamilies.contains(self.candidateFontName.value) {
+                        Text(self.candidateFontName.value).tag(self.candidateFontName.value)
+                    }
+                    ForEach(self.japaneseFontFamilies, id: \.self) { family in
+                        Text(family).tag(family)
+                    }
+                }
+                .task {
+                    if self.japaneseFontFamilies.isEmpty {
+                        self.japaneseFontFamilies = Self.japaneseFontFamilies()
                     }
                 }
             } header: {
