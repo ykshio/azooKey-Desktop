@@ -183,10 +183,14 @@ struct ConfigWindow: View {
         }
     }
 
-    /// 日本語（ひらがな・漢字）を表示できるフォントのファミリー名
+    /// 日本語を表示できるフォントのファミリー名
+    ///
+    /// ひらがな・カタカナすべてと、中国語・韓国語のフォントに欠けがちな日本の漢字を含むものに限る
     private static func japaneseFontFamilies() -> [String] {
         let manager = NSFontManager.shared
-        let required = CharacterSet(charactersIn: "あ漢")
+        var required = CharacterSet(charactersIn: "\u{3041}"..."\u{3093}") // ひらがな
+        required.formUnion(CharacterSet(charactersIn: "\u{30A1}"..."\u{30F6}")) // カタカナ
+        required.formUnion(CharacterSet(charactersIn: "日本語漢字変換辻込働峠畑栃岡崎塚藤"))
         return manager.availableFontFamilies.filter { family in
             guard !family.hasPrefix("."),
                   let font = manager.font(withFamily: family, traits: [], weight: 5, size: 12) else {
