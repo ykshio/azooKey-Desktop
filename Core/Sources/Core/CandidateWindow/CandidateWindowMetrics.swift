@@ -8,15 +8,18 @@ public struct CandidateWindowMetrics: Sendable, Equatable {
 
     /// 候補本文の文字サイズ
     public let fontSize: Double
+    /// 候補本文と注釈のフォントのファミリー名。空ならシステム標準
+    public let fontName: String
 
-    public init(fontSize: Int) {
+    public init(fontSize: Int, fontName: String = "") {
         let range = Config.CandidateFontSize.range
         self.fontSize = Double(min(max(fontSize, range.lowerBound), range.upperBound))
+        self.fontName = fontName
     }
 
     /// 設定値から作る
     public static var current: Self {
-        .init(fontSize: Config.CandidateFontSize().value)
+        .init(fontSize: Config.CandidateFontSize().value, fontName: Config.CandidateFontName().value)
     }
 
     private var scale: Double {

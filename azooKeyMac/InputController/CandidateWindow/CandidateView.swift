@@ -70,7 +70,7 @@ class CandidatesViewController: BaseCandidateViewController {
             let annotationString = NSAttributedString(
                 string: annotationText,
                 attributes: [
-                    .font: NSFont.systemFont(ofSize: self.metrics.annotationFontSize),
+                    .font: self.metrics.annotationFont,
                     .foregroundColor: currentSelectedRow == row ? NSColor.white : NSColor.systemGray
                 ]
             )
@@ -156,7 +156,7 @@ class PredictionCandidatesViewController: BaseCandidateViewController {
         let candidateAttributed = NSAttributedString(
             string: candidateText,
             attributes: [
-                .font: NSFont.systemFont(ofSize: self.metrics.fontSize),
+                .font: self.metrics.candidateFont,
                 .foregroundColor: candidateColor
             ]
         )

@@ -26,3 +26,9 @@ import Testing
     #expect(CandidateWindowMetrics(fontSize: 1).fontSize == Double(Config.CandidateFontSize.range.lowerBound))
     #expect(CandidateWindowMetrics(fontSize: 1000).fontSize == Double(Config.CandidateFontSize.range.upperBound))
 }
+
+@Test func candidateWindowMetricsDetectsFontChange() {
+    // フォントだけ変えても、候補ウィンドウが寸法を更新するよう別物として扱う
+    #expect(CandidateWindowMetrics(fontSize: 18) == CandidateWindowMetrics(fontSize: 18, fontName: ""))
+    #expect(CandidateWindowMetrics(fontSize: 18) != CandidateWindowMetrics(fontSize: 18, fontName: "Hiragino Mincho ProN"))
+}
