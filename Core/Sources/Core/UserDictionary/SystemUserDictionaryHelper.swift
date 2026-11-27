@@ -23,6 +23,8 @@ public enum SystemUserDictionaryHelper: Sendable {
         case fileNotReadable(String)
         case failedToOpenDatabase(status: Int32)
         case failedToPrepareStatement(status: Int32)
+        /// 行の読み取りが途中で失敗した（`SQLITE_BUSY`など）
+        case failedToReadRows(status: Int32)
     }
 
     #if os(macOS)
@@ -109,6 +111,11 @@ public enum SystemUserDictionaryHelper: Sendable {
         }
         do {
             let entries = try Self.readEntries(databaseURL: databaseURL)
+            // 読み取り中に設定画面で「リセット」や読み込みが行われていたら、その操作を優先して結果を捨てる
+            guard let current = try? CompiledUserDictionaryStore.strictValue(of: item),
+                  Self.isSameImport(value, current) else {
+                return false
+            }
             item.value = .init(
                 lastUpdate: Date(),
                 items: entries.map { .init(word: $0.phrase, reading: $0.shortcut) },
@@ -119,6 +126,31 @@ public enum SystemUserDictionaryHelper: Sendable {
             print("Failed to refresh system user dictionary: \(error)")
             return false
         }
+    }
+
+    /// 同じ取り込み結果のままか（「リセット」や手動の読み込みで変わっていないか）
+    static func isSameImport(_ lhs: Config.SystemUserDictionary.Value, _ rhs: Config.SystemUserDictionary.Value) -> Bool {
+        lhs.lastUpdate == rhs.lastUpdate && lhs.sourceModificationDate == rhs.sourceModificationDate
+    }
+
+    /// SQLiteの結果コード（Linuxでは SQLite3 を読み込まないため値で持つ）
+    static let sqliteRow: Int32 = 100
+    static let sqliteDone: Int32 = 101
+
+    /// 行を最後まで読み切ったときだけ結果を返す。途中で失敗したら、読みかけの結果は使わずに投げる
+    static func collectRows(step: () -> Int32, readRow: () -> Entry?) throws(FetchError) -> [Entry] {
+        var entries: [Entry] = []
+        var status = step()
+        while status == Self.sqliteRow {
+            if let entry = readRow() {
+                entries.append(entry)
+            }
+            status = step()
+        }
+        guard status == Self.sqliteDone else {
+            throw .failedToReadRows(status: status)
+        }
+        return entries
     }
 
     /// データベースから読む。権限が無い場合も画面は出さずに失敗する
@@ -154,14 +186,13 @@ public enum SystemUserDictionaryHelper: Sendable {
             sqlite3_finalize(statement)
         }
 
-        var entries: [Entry] = []
-        while sqlite3_step(statement) == SQLITE_ROW {
-            if let shortcutC = sqlite3_column_text(statement, 0),
-               let phraseC = sqlite3_column_text(statement, 1) {
-                entries.append(Entry(shortcut: String(cString: shortcutC), phrase: String(cString: phraseC)))
+        return try Self.collectRows(step: { sqlite3_step(statement) }, readRow: {
+            guard let shortcutC = sqlite3_column_text(statement, 0),
+                  let phraseC = sqlite3_column_text(statement, 1) else {
+                return nil
             }
-        }
-        return entries
+            return Entry(shortcut: String(cString: shortcutC), phrase: String(cString: phraseC))
+        })
         #endif
     }
 
