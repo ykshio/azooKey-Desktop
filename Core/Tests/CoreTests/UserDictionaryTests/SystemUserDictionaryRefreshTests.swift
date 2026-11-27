@@ -84,3 +84,31 @@ import Testing
     }
     #endif
 }
+
+@Test func collectRowsReturnsAllRowsWhenFinished() throws {
+    var statuses: [Int32] = [100, 100, 101] // ROW, ROW, DONE
+    let entries = try SystemUserDictionaryHelper.collectRows(step: { statuses.removeFirst() }, readRow: {
+        .init(shortcut: "よみ", phrase: "単語")
+    })
+    #expect(entries.count == 2)
+}
+
+@Test func collectRowsDiscardsPartialResultOnError() {
+    var statuses: [Int32] = [100, 5] // ROW, BUSY
+    #expect(throws: SystemUserDictionaryHelper.FetchError.failedToReadRows(status: 5)) {
+        _ = try SystemUserDictionaryHelper.collectRows(step: { statuses.removeFirst() }, readRow: {
+            .init(shortcut: "よみ", phrase: "単語")
+        })
+    }
+}
+
+@Test func refreshResultIsDiscardedWhenImportChangedMeanwhile() {
+    let old = Date(timeIntervalSince1970: 100)
+    let imported = Config.SystemUserDictionary.Value(lastUpdate: old, items: [], sourceModificationDate: old)
+    #expect(SystemUserDictionaryHelper.isSameImport(imported, imported))
+    // 「リセット」された
+    #expect(!SystemUserDictionaryHelper.isSameImport(imported, .init(items: [])))
+    // 手動で読み込み直された
+    let reimported = Config.SystemUserDictionary.Value(lastUpdate: Date(timeIntervalSince1970: 200), items: [], sourceModificationDate: old)
+    #expect(!SystemUserDictionaryHelper.isSameImport(imported, reimported))
+}
