@@ -574,10 +574,7 @@ struct ConfigWindow: View {
                             }
                         }
                     }
-                    Text("macOSの「テキスト置換」に登録した単語を変換候補に加えます。変更は自動で反映されます。")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
+                    .help("macOSの「テキスト置換」に登録した単語を変換候補に加えます。変更は自動で反映されます。")
                     if case .error(let error) = self.systemUserDictionaryUpdateMessage {
                         Text("読み込みエラー: \(error.localizedDescription)")
                             .font(.caption)
@@ -625,13 +622,9 @@ struct ConfigWindow: View {
                         }
                     }
                 } label: {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("辞書を最後に反映した日時")
-                        Text("単語の編集や、上の項目の切り替えのたびに更新されます")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
+                    Text("最終反映")
                 }
+                .help("単語の編集や、上の項目の切り替えのたびに更新されます")
             } header: {
                 Label("ユーザ辞書", systemImage: "book.closed")
             }
