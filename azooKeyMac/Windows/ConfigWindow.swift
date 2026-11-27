@@ -592,7 +592,8 @@ struct ConfigWindow: View {
                         Text(self.candidateFontName.value).tag(self.candidateFontName.value)
                     }
                     ForEach(self.japaneseFontFamilies, id: \.self) { family in
-                        Text(family).tag(family)
+                        // 「YuKyokasho」ではなく「游教科書体」のように表示する
+                        Text(NSFontManager.shared.localizedName(forFamily: family, face: nil)).tag(family)
                     }
                 }
                 .task {
