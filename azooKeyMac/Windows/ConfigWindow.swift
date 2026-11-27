@@ -566,7 +566,7 @@ struct ConfigWindow: View {
                 }
                 VStack(alignment: .leading, spacing: 6) {
                     Toggle(
-                        "連絡先の氏名を変換に使う",
+                        "連絡先の氏名",
                         isOn: Binding(
                             get: { self.contactsNameConversion.value },
                             set: { newValue in
