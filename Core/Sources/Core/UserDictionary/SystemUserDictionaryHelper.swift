@@ -111,20 +111,34 @@ public enum SystemUserDictionaryHelper: Sendable {
         }
         do {
             let entries = try Self.readEntries(databaseURL: databaseURL)
-            // 読み取り中に設定画面で「リセット」や読み込みが行われていたら、その操作を優先して結果を捨てる
-            guard let current = try? CompiledUserDictionaryStore.strictValue(of: item),
-                  Self.isSameImport(value, current) else {
-                return false
-            }
-            item.value = .init(
+            let newValue = Config.SystemUserDictionary.Value(
                 lastUpdate: Date(),
                 items: entries.map { .init(word: $0.phrase, reading: $0.shortcut) },
                 sourceModificationDate: modificationDate
             )
-            return true
+            // 設定画面の「リセット」・読み込みはメインスレッドで動く。再確認と保存を同じメインスレッド上で
+            // 間を空けずに行い、読み取り中にそれらが行われていたら、その操作を優先して結果を捨てる
+            return Self.onMainThread {
+                guard let current = try? CompiledUserDictionaryStore.strictValue(of: item),
+                      Self.isSameImport(value, current) else {
+                    return false
+                }
+                item.value = newValue
+                return true
+            }
         } catch {
             print("Failed to refresh system user dictionary: \(error)")
             return false
+        }
+    }
+
+    /// メインスレッドで同期的に実行する（すでにメインスレッドならそのまま）
+    private static func onMainThread<T: Sendable>(_ body: @MainActor () -> T) -> T {
+        if Thread.isMainThread {
+            return MainActor.assumeIsolated(body)
+        }
+        return DispatchQueue.main.sync {
+            MainActor.assumeIsolated(body)
         }
     }
 
