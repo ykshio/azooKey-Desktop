@@ -510,7 +510,7 @@ struct ConfigWindow: View {
                         )
                     ) {
                         HStack {
-                            Text("システムのユーザ辞書を使う")
+                            Text("システムのユーザ辞書")
                             if self.systemUserDictionary.value.lastUpdate != nil {
                                 Text("\(self.systemUserDictionary.value.items.count)件")
                                     .foregroundStyle(.secondary)
@@ -538,7 +538,7 @@ struct ConfigWindow: View {
                         }
                     }
                 } label: {
-                    Text("最終反映")
+                    Text("最終更新日時")
                 }
                 .help("単語の編集や、上の項目の切り替えのたびに更新されます")
             } header: {
